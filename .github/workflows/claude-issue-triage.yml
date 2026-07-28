@@ -52,7 +52,9 @@ jobs:
                de triage tuyo escribí un análisis actualizado que referencie el cambio) con:
                gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "..."
 
-               El comentario debe tener esta estructura, en español:
+               El comentario debe estar en formato Markdown válido que GitHub renderice bien
+               (encabezados con `**negrita**`, listas con `-`, referencias a código con backticks
+               o bloques \`\`\`), con esta estructura, en español:
                - **Clasificación**: tipo de issue + labels aplicadas y por qué.
                - **Diagnóstico**: causa probable, citando game.js:<línea> de las funciones o
                  constantes implicadas.
