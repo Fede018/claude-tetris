@@ -1,0 +1,69 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+concurrency:
+  group: issue-triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  triage:
+    if: github.event.sender.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Issue Triage
+        id: claude-triage
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh label list:*),Read,Grep,Glob"'
+          prompt: |
+            Este repo es un Tetris vanilla JS (index.html, style.css, game.js). Toda la lógica
+            vive en game.js a nivel de módulo: collide, tryRotate, lockPiece, merge, clearLines,
+            spawn, ghostY, draw, drawNext, loop. Ver CLAUDE.md para el mapa completo.
+
+            El issue #${{ github.event.issue.number }} en ${{ github.repository }} acaba de
+            abrirse o editarse. Hacé triage:
+
+            1. Leé el issue completo (título, cuerpo, comentarios existentes) con:
+               gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json title,body,labels,comments
+
+            2. Explorá el código relevante (Read/Grep/Glob) para entender qué parte del juego
+               está involucrada.
+
+            3. Elegí labels ÚNICAMENTE de esta lista fija — no crees ni inventes labels nuevos:
+               bug, documentation, duplicate, enhancement, good first issue, help wanted,
+               invalid, question, wontfix
+               Aplicá las que correspondan (normalmente 1-2) con:
+               gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label "..."
+
+            4. Posteá UN solo comentario nuevo (no repitas uno anterior, si ya existe un comentario
+               de triage tuyo escribí un análisis actualizado que referencie el cambio) con:
+               gh issue comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "..."
+
+               El comentario debe tener esta estructura, en español:
+               - **Clasificación**: tipo de issue + labels aplicadas y por qué.
+               - **Diagnóstico**: causa probable, citando game.js:<línea> de las funciones o
+                 constantes implicadas.
+               - **Reproducción**: pasos concretos, o "no reproducible con la info dada" si el
+                 reporte es ambiguo.
+               - **Enfoque sugerido**: qué funciones tocar y cómo, sin escribir el parche completo.
+               - **Info faltante**: preguntas al autor si el reporte no alcanza (en ese caso aplicá
+                 también la label question).
+
+            Restricciones:
+            - No modifiques código ni archivos del repo.
+            - No abras pull requests.
+            - No edites el título ni el cuerpo del issue.
+            - Si el issue es spam o no tiene sentido, aplicá invalid y comentá brevemente.
