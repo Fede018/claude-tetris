@@ -13,6 +13,8 @@ const COLORS = [
   '#e57373', // Z - red
   '#90caf9', // J - pale blue
   '#ffb74d', // L - orange
+  '#b0bec5', // 8 - tuerca (metal)
+  '#546e7a', // 9 - agujero de la tuerca
 ];
 
 const PIECES = [
@@ -24,6 +26,7 @@ const PIECES = [
   [[5,5,0],[0,5,5],[0,0,0]],                  // Z
   [[6,0,0],[6,6,6],[0,0,0]],                  // J
   [[0,0,7],[7,7,7],[0,0,0]],                  // L
+  [[8,8,8],[8,9,8],[8,8,8]],                  // Tuerca
 ];
 
 const LINE_SCORES = [0, 100, 300, 500, 800];
@@ -50,7 +53,7 @@ function createBoard() {
 }
 
 function randomPiece() {
-  const type = Math.floor(Math.random() * 7) + 1;
+  const type = Math.floor(Math.random() * 8) + 1;
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
 }
@@ -162,8 +165,21 @@ function updateHUD() {
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
-  const color = COLORS[colorIndex];
   context.globalAlpha = alpha ?? 1;
+
+  if (colorIndex === 9) {
+    // agujero de la tuerca: anillo metal + círculo del agujero encima
+    context.fillStyle = COLORS[8];
+    context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+    context.fillStyle = COLORS[9];
+    context.beginPath();
+    context.arc(x * size + size / 2, y * size + size / 2, size * 0.28, 0, Math.PI * 2);
+    context.fill();
+    context.globalAlpha = 1;
+    return;
+  }
+
+  const color = COLORS[colorIndex];
   context.fillStyle = color;
   context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
   // highlight
