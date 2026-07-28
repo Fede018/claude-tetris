@@ -15,7 +15,11 @@ const COLORS = [
   '#ffb74d', // L - orange
   '#b0bec5', // 8 - tuerca (metal)
   '#546e7a', // 9 - agujero de la tuerca
+  '#263238', // 10 - bomba
 ];
+
+const BOMB_TYPE = 10;
+const POWERUP_LINE_INTERVAL = 5; // cada N líneas, la siguiente pieza es una bomba
 
 const PIECES = [
   null,
@@ -46,7 +50,7 @@ const themeToggle = document.getElementById('theme-toggle');
 
 const THEME_STORAGE_KEY = 'tetris-theme';
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, gridColor;
+let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, gridColor, linesSincePowerup;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -56,6 +60,11 @@ function randomPiece() {
   const type = Math.floor(Math.random() * 8) + 1;
   const shape = PIECES[type].map(row => [...row]);
   return { type, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
+}
+
+function makeBombPiece() {
+  const shape = [[BOMB_TYPE]];
+  return { type: BOMB_TYPE, shape, x: Math.floor(COLS / 2) - Math.floor(shape[0].length / 2), y: 0 };
 }
 
 function collide(shape, ox, oy) {
@@ -114,8 +123,25 @@ function clearLines() {
     score += (LINE_SCORES[cleared] || 0) * level;
     level = Math.floor(lines / 10) + 1;
     dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    linesSincePowerup += cleared;
+    while (linesSincePowerup >= POWERUP_LINE_INTERVAL) {
+      linesSincePowerup -= POWERUP_LINE_INTERVAL;
+      next = makeBombPiece();
+    }
     updateHUD();
   }
+}
+
+function explode(cx, cy) {
+  let destroyed = 0;
+  for (let r = cy - 1; r <= cy + 1; r++) {
+    for (let c = cx - 1; c <= cx + 1; c++) {
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
+      if (board[r][c]) destroyed++;
+      board[r][c] = 0;
+    }
+  }
+  if (destroyed) score += destroyed * 15;
 }
 
 function ghostY() {
@@ -142,7 +168,12 @@ function softDrop() {
 }
 
 function lockPiece() {
-  merge();
+  if (current.type === BOMB_TYPE) {
+    explode(current.x, current.y);
+    updateHUD();
+  } else {
+    merge();
+  }
   clearLines();
   spawn();
 }
@@ -166,6 +197,17 @@ function updateHUD() {
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
   context.globalAlpha = alpha ?? 1;
+
+  if (colorIndex === BOMB_TYPE) {
+    context.fillStyle = COLORS[BOMB_TYPE];
+    context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+    context.font = `${Math.floor(size * 0.7)}px sans-serif`;
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText('💣', x * size + size / 2, y * size + size / 2 + 1);
+    context.globalAlpha = 1;
+    return;
+  }
 
   if (colorIndex === 9) {
     // agujero de la tuerca: anillo metal + círculo del agujero encima
@@ -306,6 +348,7 @@ function init() {
   gameOver = false;
   dropInterval = 1000;
   dropAccum = 0;
+  linesSincePowerup = 0;
   lastTime = performance.now();
   next = randomPiece();
   spawn();
