@@ -42,6 +42,8 @@ const nextCtx = nextCanvas.getContext('2d');
 const scoreEl = document.getElementById('score');
 const linesEl = document.getElementById('lines');
 const levelEl = document.getElementById('level');
+const comboEl = document.getElementById('combo');
+const comboSection = document.getElementById('combo-section');
 const overlay = document.getElementById('overlay');
 const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
@@ -50,7 +52,7 @@ const themeToggle = document.getElementById('theme-toggle');
 
 const THEME_STORAGE_KEY = 'tetris-theme';
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, gridColor, linesSincePowerup;
+let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, gridColor, linesSincePowerup, combo, maxCombo, maxLines;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -128,8 +130,13 @@ function clearLines() {
       linesSincePowerup -= POWERUP_LINE_INTERVAL;
       next = makeBombPiece();
     }
-    updateHUD();
+    combo++;
+    maxCombo = Math.max(maxCombo, combo);
+    maxLines = Math.max(maxLines, cleared);
+  } else {
+    combo = 0;
   }
+  updateHUD();
 }
 
 function explode(cx, cy) {
@@ -192,6 +199,8 @@ function updateHUD() {
   scoreEl.textContent = score.toLocaleString();
   linesEl.textContent = lines;
   levelEl.textContent = level;
+  comboEl.textContent = combo;
+  comboSection.style.display = combo > 1 ? '' : 'none';
 }
 
 function drawBlock(context, x, y, colorIndex, size, alpha) {
@@ -349,6 +358,9 @@ function init() {
   dropInterval = 1000;
   dropAccum = 0;
   linesSincePowerup = 0;
+  combo = 0;
+  maxCombo = 0;
+  maxLines = 0;
   lastTime = performance.now();
   next = randomPiece();
   spawn();
