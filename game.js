@@ -47,10 +47,49 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const startLevelSelect = document.getElementById('start-level');
 
 const THEME_STORAGE_KEY = 'tetris-theme';
+const START_LEVEL_STORAGE_KEY = 'tetris-start-level';
+const MAX_START_LEVEL = 15;
 
-let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, gridColor, linesSincePowerup;
+let board, current, next, score, lines, level, startLevel, paused, gameOver, lastTime, dropAccum, dropInterval, animId, gridColor, linesSincePowerup;
+
+function speedForLevel(lvl) {
+  return Math.max(100, 1000 - (lvl - 1) * 90);
+}
+
+function getStartLevel() {
+  try {
+    const stored = parseInt(localStorage.getItem(START_LEVEL_STORAGE_KEY), 10);
+    if (Number.isInteger(stored) && stored >= 1 && stored <= MAX_START_LEVEL) return stored;
+  } catch (e) {
+    // localStorage no disponible (p.ej. navegación privada)
+  }
+  return 1;
+}
+
+function setStartLevel(lvl) {
+  try {
+    localStorage.setItem(START_LEVEL_STORAGE_KEY, String(lvl));
+  } catch (e) {
+    // localStorage no disponible (p.ej. navegación privada)
+  }
+}
+
+function initStartLevelSelect() {
+  for (let lvl = 1; lvl <= MAX_START_LEVEL; lvl++) {
+    const opt = document.createElement('option');
+    opt.value = String(lvl);
+    opt.textContent = String(lvl);
+    startLevelSelect.appendChild(opt);
+  }
+  startLevelSelect.value = String(getStartLevel());
+  startLevelSelect.addEventListener('change', () => {
+    const lvl = parseInt(startLevelSelect.value, 10) || 1;
+    setStartLevel(lvl);
+  });
+}
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -121,8 +160,8 @@ function clearLines() {
   if (cleared) {
     lines += cleared;
     score += (LINE_SCORES[cleared] || 0) * level;
-    level = Math.floor(lines / 10) + 1;
-    dropInterval = Math.max(100, 1000 - (level - 1) * 90);
+    level = startLevel + Math.floor(lines / 10);
+    dropInterval = speedForLevel(level);
     linesSincePowerup += cleared;
     while (linesSincePowerup >= POWERUP_LINE_INTERVAL) {
       linesSincePowerup -= POWERUP_LINE_INTERVAL;
@@ -343,10 +382,11 @@ function init() {
   board = createBoard();
   score = 0;
   lines = 0;
-  level = 1;
+  startLevel = getStartLevel();
+  level = startLevel;
   paused = false;
   gameOver = false;
-  dropInterval = 1000;
+  dropInterval = speedForLevel(startLevel);
   dropAccum = 0;
   linesSincePowerup = 0;
   lastTime = performance.now();
@@ -387,4 +427,5 @@ restartBtn.addEventListener('click', init);
 themeToggle.addEventListener('change', toggleTheme);
 
 initTheme();
+initStartLevelSelect();
 init();
