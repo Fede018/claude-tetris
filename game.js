@@ -47,6 +47,22 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const gameoverContent = document.getElementById('gameover-content');
+const pauseMenu = document.getElementById('pause-menu');
+const controlsView = document.getElementById('controls-view');
+const resumeBtn = document.getElementById('resume-btn');
+const pauseRestartBtn = document.getElementById('pause-restart-btn');
+const controlsBtn = document.getElementById('controls-btn');
+const backBtn = document.getElementById('back-btn');
+
+const OVERLAY_SECTIONS = [gameoverContent, pauseMenu, controlsView];
+
+function showOverlaySection(section) {
+  overlay.classList.remove('hidden');
+  for (const el of OVERLAY_SECTIONS) {
+    el.classList.toggle('hidden', el !== section);
+  }
+}
 
 const THEME_STORAGE_KEY = 'tetris-theme';
 
@@ -285,7 +301,7 @@ function endGame() {
   cancelAnimationFrame(animId);
   overlayTitle.textContent = 'GAME OVER';
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
-  overlay.classList.remove('hidden');
+  showOverlaySection(gameoverContent);
 }
 
 function setTheme(theme) {
@@ -311,13 +327,12 @@ function togglePause() {
   if (gameOver) return;
   paused = !paused;
   if (!paused) {
+    overlay.classList.add('hidden');
     lastTime = performance.now();
     loop(lastTime);
   } else {
     cancelAnimationFrame(animId);
-    overlayTitle.textContent = 'PAUSA';
-    overlayScore.textContent = '';
-    overlay.classList.remove('hidden');
+    showOverlaySection(pauseMenu);
   }
 }
 
@@ -354,12 +369,15 @@ function init() {
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
+  gameoverContent.classList.remove('hidden');
+  pauseMenu.classList.add('hidden');
+  controlsView.classList.add('hidden');
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
 
 document.addEventListener('keydown', e => {
-  if (e.code === 'KeyP') { togglePause(); return; }
+  if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (paused || gameOver) return;
   switch (e.code) {
     case 'ArrowLeft':
@@ -384,6 +402,10 @@ document.addEventListener('keydown', e => {
 });
 
 restartBtn.addEventListener('click', init);
+pauseRestartBtn.addEventListener('click', init);
+resumeBtn.addEventListener('click', togglePause);
+controlsBtn.addEventListener('click', () => showOverlaySection(controlsView));
+backBtn.addEventListener('click', () => showOverlaySection(pauseMenu));
 themeToggle.addEventListener('change', toggleTheme);
 
 initTheme();
