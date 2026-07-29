@@ -157,6 +157,30 @@ kbd {
   color: var(--kbd-text);
 }
 
+/* ---- Nivel inicial ---- */
+#start-level {
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  color: var(--value-color);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#start-level:focus-visible {
+  outline: 2px solid var(--value-color);
+  outline-offset: 2px;
+}
+
+.start-level .hint {
+  font-size: 10px;
+  color: var(--controls-text);
+  line-height: 1.3;
+}
+
 /* ---- Theme toggle ---- */
 .theme-toggle {
   flex-direction: row;
