@@ -209,6 +209,30 @@ kbd {
   outline-offset: 2px;
 }
 
+/* ---- Skin select ---- */
+.skin-select {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+#skin {
+  background: var(--kbd-bg);
+  color: var(--text);
+  border: 1px solid var(--kbd-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+#skin:focus-visible {
+  outline: 2px solid var(--value-color);
+  outline-offset: 2px;
+}
+
 /* ---- Overlay ---- */
 .overlay {
   position: absolute;
