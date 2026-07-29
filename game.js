@@ -18,7 +18,36 @@ const COLORS = [
   '#263238', // 10 - bomba
 ];
 
+const NEON_COLORS = [
+  null,
+  '#00e5ff', // I - cyan
+  '#ffea00', // O - yellow
+  '#e040fb', // T - purple
+  '#00e676', // S - green
+  '#ff1744', // Z - red
+  '#40c4ff', // J - pale blue
+  '#ff9100', // L - orange
+  '#cfd8dc', // 8 - tuerca (metal)
+  '#78909c', // 9 - agujero de la tuerca
+  '#ff1744', // 10 - bomba
+];
+
+const PASTEL_COLORS = [
+  null,
+  '#b2ebf2', // I - cyan
+  '#fff59d', // O - yellow
+  '#e1bee7', // T - purple
+  '#c8e6c9', // S - green
+  '#ffcdd2', // Z - red
+  '#bbdefb', // J - pale blue
+  '#ffe0b2', // L - orange
+  '#cfd8dc', // 8 - tuerca (metal)
+  '#90a4ae', // 9 - agujero de la tuerca
+  '#455a64', // 10 - bomba
+];
+
 const BOMB_TYPE = 10;
+const WRENCH_HOLE_TYPE = 9;
 const POWERUP_LINE_INTERVAL = 5; // cada N líneas, la siguiente pieza es una bomba
 
 const PIECES = [
@@ -47,10 +76,13 @@ const overlayTitle = document.getElementById('overlay-title');
 const overlayScore = document.getElementById('overlay-score');
 const restartBtn = document.getElementById('restart-btn');
 const themeToggle = document.getElementById('theme-toggle');
+const skinSelect = document.getElementById('skin');
 
 const THEME_STORAGE_KEY = 'tetris-theme';
+const SKIN_STORAGE_KEY = 'tetris-skin';
 
 let board, current, next, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId, gridColor, linesSincePowerup;
+let activeSkin;
 
 function createBoard() {
   return Array.from({ length: ROWS }, () => new Array(COLS).fill(0));
@@ -194,39 +226,160 @@ function updateHUD() {
   levelEl.textContent = level;
 }
 
+// ---- Helpers de dibujo compartidos entre skins ----
+
+function fillInset(context, x, y, size, color) {
+  context.fillStyle = color;
+  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+}
+
+function topHighlight(context, x, y, size, alpha) {
+  context.fillStyle = `rgba(255,255,255,${alpha ?? 0.12})`;
+  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+}
+
+function drawBombGlyph(context, x, y, size, bombColor) {
+  context.fillStyle = bombColor;
+  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+  context.font = `${Math.floor(size * 0.7)}px sans-serif`;
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText('💣', x * size + size / 2, y * size + size / 2 + 1);
+  // resetear estado mutado del contexto para no afectar dibujos posteriores
+  context.textAlign = 'start';
+  context.textBaseline = 'alphabetic';
+}
+
+function drawWrenchHole(context, x, y, size, bodyColor, holeColor) {
+  // agujero de la tuerca: cuerpo metal + círculo del agujero encima
+  fillInset(context, x, y, size, bodyColor);
+  context.fillStyle = holeColor;
+  context.beginPath();
+  context.arc(x * size + size / 2, y * size + size / 2, size * 0.28, 0, Math.PI * 2);
+  context.fill();
+}
+
+function roundRectPath(context, x, y, w, h, r) {
+  context.beginPath();
+  if (typeof context.roundRect === 'function') {
+    context.roundRect(x, y, w, h, r);
+    return;
+  }
+  context.moveTo(x + r, y);
+  context.arcTo(x + w, y, x + w, y + h, r);
+  context.arcTo(x + w, y + h, x, y + h, r);
+  context.arcTo(x, y + h, x, y, r);
+  context.arcTo(x, y, x + w, y, r);
+  context.closePath();
+}
+
+// ---- Skins visuales ----
+
+const SKINS = {
+  retro: {
+    colors: COLORS,
+    drawCell(context, x, y, colorIndex, size) {
+      if (colorIndex === BOMB_TYPE) {
+        drawBombGlyph(context, x, y, size, this.colors[BOMB_TYPE]);
+        return;
+      }
+      if (colorIndex === WRENCH_HOLE_TYPE) {
+        drawWrenchHole(context, x, y, size, this.colors[8], this.colors[WRENCH_HOLE_TYPE]);
+        return;
+      }
+      fillInset(context, x, y, size, this.colors[colorIndex]);
+      topHighlight(context, x, y, size);
+    },
+  },
+
+  neon: {
+    colors: NEON_COLORS,
+    boardBg: '#050508',
+    drawCell(context, x, y, colorIndex, size) {
+      const color = this.colors[colorIndex];
+      context.shadowColor = color;
+      context.shadowBlur = size * 0.5;
+      if (colorIndex === BOMB_TYPE) {
+        drawBombGlyph(context, x, y, size, color);
+      } else if (colorIndex === WRENCH_HOLE_TYPE) {
+        drawWrenchHole(context, x, y, size, this.colors[8], color);
+      } else {
+        fillInset(context, x, y, size, color);
+        topHighlight(context, x, y, size, 0.25);
+      }
+      // el shadowBlur no debe filtrarse a la grilla ni al siguiente bloque
+      context.shadowBlur = 0;
+      context.shadowColor = 'transparent';
+    },
+  },
+
+  pastel: {
+    colors: PASTEL_COLORS,
+    drawCell(context, x, y, colorIndex, size) {
+      const color = this.colors[colorIndex];
+      const r = size * 0.22;
+      if (colorIndex === BOMB_TYPE) {
+        roundRectPath(context, x * size + 1, y * size + 1, size - 2, size - 2, r);
+        context.fillStyle = color;
+        context.fill();
+        context.font = `${Math.floor(size * 0.6)}px sans-serif`;
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText('💣', x * size + size / 2, y * size + size / 2 + 1);
+        context.textAlign = 'start';
+        context.textBaseline = 'alphabetic';
+        return;
+      }
+      if (colorIndex === WRENCH_HOLE_TYPE) {
+        roundRectPath(context, x * size + 1, y * size + 1, size - 2, size - 2, r);
+        context.fillStyle = this.colors[8];
+        context.fill();
+        context.fillStyle = color;
+        context.beginPath();
+        context.arc(x * size + size / 2, y * size + size / 2, size * 0.26, 0, Math.PI * 2);
+        context.fill();
+        return;
+      }
+      roundRectPath(context, x * size + 1, y * size + 1, size - 2, size - 2, r);
+      context.fillStyle = color;
+      context.fill();
+      // highlight suave arriba
+      context.fillStyle = 'rgba(255,255,255,0.35)';
+      context.fillRect(x * size + 4, y * size + 3, size - 8, 3);
+    },
+  },
+
+  pixel: {
+    colors: COLORS,
+    drawCell(context, x, y, colorIndex, size) {
+      if (colorIndex === BOMB_TYPE) {
+        drawBombGlyph(context, x, y, size, this.colors[BOMB_TYPE]);
+        return;
+      }
+      if (colorIndex === WRENCH_HOLE_TYPE) {
+        drawWrenchHole(context, x, y, size, this.colors[8], this.colors[WRENCH_HOLE_TYPE]);
+        return;
+      }
+      const color = this.colors[colorIndex];
+      fillInset(context, x, y, size, color);
+      // textura tipo dither/checker en 2x2 sub-celdas
+      const half = (size - 2) / 2;
+      const bx = x * size + 1;
+      const by = y * size + 1;
+      context.fillStyle = 'rgba(0,0,0,0.18)';
+      context.fillRect(bx, by, half, half);
+      context.fillRect(bx + half, by + half, half, half);
+      context.fillStyle = 'rgba(255,255,255,0.12)';
+      context.fillRect(bx + half, by, half, half);
+      context.fillRect(bx, by + half, half, half);
+    },
+  },
+};
+
 function drawBlock(context, x, y, colorIndex, size, alpha) {
   if (!colorIndex) return;
   context.globalAlpha = alpha ?? 1;
-
-  if (colorIndex === BOMB_TYPE) {
-    context.fillStyle = COLORS[BOMB_TYPE];
-    context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-    context.font = `${Math.floor(size * 0.7)}px sans-serif`;
-    context.textAlign = 'center';
-    context.textBaseline = 'middle';
-    context.fillText('💣', x * size + size / 2, y * size + size / 2 + 1);
-    context.globalAlpha = 1;
-    return;
-  }
-
-  if (colorIndex === 9) {
-    // agujero de la tuerca: anillo metal + círculo del agujero encima
-    context.fillStyle = COLORS[8];
-    context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-    context.fillStyle = COLORS[9];
-    context.beginPath();
-    context.arc(x * size + size / 2, y * size + size / 2, size * 0.28, 0, Math.PI * 2);
-    context.fill();
-    context.globalAlpha = 1;
-    return;
-  }
-
-  const color = COLORS[colorIndex];
-  context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
-  // highlight
-  context.fillStyle = 'rgba(255,255,255,0.12)';
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  activeSkin.drawCell(context, x, y, colorIndex, size);
   context.globalAlpha = 1;
 }
 
@@ -249,6 +402,10 @@ function drawGrid() {
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (activeSkin.boardBg) {
+    ctx.fillStyle = activeSkin.boardBg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
   drawGrid();
 
   // board
@@ -303,6 +460,34 @@ function toggleTheme() {
   const theme = themeToggle.checked ? 'light' : 'dark';
   setTheme(theme);
   localStorage.setItem(THEME_STORAGE_KEY, theme);
+  draw();
+  drawNext();
+}
+
+function setSkin(name) {
+  activeSkin = SKINS[name] || SKINS.retro;
+  if (skinSelect) skinSelect.value = SKINS[name] ? name : 'retro';
+}
+
+function initSkin() {
+  let stored = 'retro';
+  try {
+    const saved = localStorage.getItem(SKIN_STORAGE_KEY);
+    if (saved && SKINS[saved]) stored = saved;
+  } catch (e) {
+    // localStorage no disponible; usar skin por defecto
+  }
+  setSkin(stored);
+}
+
+function changeSkin() {
+  const name = skinSelect.value;
+  setSkin(name);
+  try {
+    localStorage.setItem(SKIN_STORAGE_KEY, name);
+  } catch (e) {
+    // ignorar si localStorage no está disponible
+  }
   draw();
   drawNext();
 }
@@ -385,6 +570,8 @@ document.addEventListener('keydown', e => {
 
 restartBtn.addEventListener('click', init);
 themeToggle.addEventListener('change', toggleTheme);
+skinSelect.addEventListener('change', changeSkin);
 
 initTheme();
+initSkin();
 init();
