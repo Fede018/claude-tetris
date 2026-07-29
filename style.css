@@ -222,7 +222,7 @@ kbd {
   transition: background 0.2s;
 }
 
-.overlay.hidden {
+.hidden {
   display: none;
 }
 
@@ -234,7 +234,8 @@ kbd {
   align-items: center;
 }
 
-#overlay-title {
+#overlay-title,
+.overlay-heading {
   font-size: 28px;
   font-weight: 800;
   letter-spacing: 4px;
@@ -247,7 +248,23 @@ kbd {
   color: var(--value-color);
 }
 
-#restart-btn {
+.controls-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.controls-list li {
+  font-size: 13px;
+  color: var(--controls-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.menu-btn {
   margin-top: 8px;
   background: var(--restart-bg);
   color: var(--restart-text);
@@ -261,6 +278,6 @@ kbd {
   transition: background 0.15s;
 }
 
-#restart-btn:hover {
+.menu-btn:hover {
   background: var(--restart-bg-hover);
 }
